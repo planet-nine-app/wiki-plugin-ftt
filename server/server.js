@@ -1,43 +1,70 @@
 (function() {
 var fount = require('fount-js');
 var sessionless = require('sessionless-node');
+var fs = require('fs');
+
+const HASH = 'forward-transfer-token';
+
 let fountUser;
 
 async function startServer(params) {
   const app = params.app;
   const argv = params.argv;
-  
-  let uuid;
 
-  const fountKeys = {
+  let allyabaseUser;
+  
+  const allyabaseKeys = {
     privateKey: argv.private_key,
     pubKey: argv.pub_key
   };
 
   const saveKeys = () => {};
-  const getKeys = () => fountKeys;
+  const getKeys = () => allyabaseKeys;
 
   await sessionless.generateKeys(saveKeys, getKeys);
 
+  app.get('/plugin/ftt/owner', async function(req, res) {
+console.log('calling owner');
+    const idFile = argv.id;
+console.log('idFile', idFile);
+    fs.readFile(idFile, (err, data) => {
+      if(err) {
+console.log('err', err);
+        res.status(404);
+        return res.send(err);
+      }
+      const owner = JSON.parse(data);
+      res.send(owner);
+    });
+  });
+
   app.get('/plugin/ftt/user', async function(req, res) {
 console.log('getting called here');
-    let user;
+    let fountUser;
+    let bdoUUID;
 
-    if(!uuid) {
-      user = await fount.getUserByPublicKey(fountKeys.pubKey);
-      if(!user || !user.uuid) {
-        user = await fount.createUser(saveKeys, getKeys);   
+    if(!allyabaseUser || !fountUser) {
+      fountUser = await fount.getUserByPublicKey(fountKeys.pubKey);
+      if(!fountUser || !fountUser.uuid) {
+        fountUser = await fount.createUser(saveKeys, getKeys);   
       }
-    } else {
-      user = await fount.getUserByUUID(uuid);
+    }
+
+    if(!allyabaseUser || !bdoUser) {
+      bdoUUID = await bdo.createUser(HASH, {}, saveKeys, getKeys);
     }
 console.log('user is: ', user);
-    user.nineum = await fount.getNineum(user.uuid);
+    
+    allyabase.bdoUser = {uuid: bdoUUID, bdo: {}};
+    allyabase.fountUser = fountUser;
+    allyabaseUser.nineum = await fount.getNineum(user.uuid);
 
-    uuid = user.uuid;
-    fountUser = user;
+    let galacticNineum = allyabaseUser.nineum.filter(nineum => nineum.slice(14, 16) === 'ff');
+    if(!galacticNineum) {
+      fountUser = await fount.grantGalacticNineum(savedUser.fountUUID, '28880014');
+    } 
 
-    res.send(user);
+    res.send(allyabaseUser);
   });
 
   app.post('/plugin/ftt/resolve', async function(req, res) {
@@ -68,16 +95,30 @@ console.log('getting the user on the server, it looks like: ', fountUser);
     res.send(fountUser);
   });
 
+  app.put('/plugin/ftt/bdo', async function(req, res) {
+    try {
+      allyabaseUser.bdoUser = await bdo.updateBDO(allyabaseUser.bdoUser.uuid, HASH, req.body.bdo);
+      res.send({success: true});
+    } catch(err) {
+      res.status(404);
+      res.send(err);
+    }
+  });
+
   app.post('/pugin/ftt/grant-nineum', async function(req, res) {
-    const uuid = req.body.uuid;
+    const toUUID = req.body.toUUID;
+    const flavor = req.body.flavor;
+
+    const grantee = await fount.grantNineum(allyabaseUser.fountUser.uuid, toUUID, flavor);
+    res.send(grantee);
+  });
+
+  app.post('/pugin/ftt/grant-admin-nineum', async function(req, res) {
     const toUUID = req.body.toUUID;
 
-    // Need to get my specific brand of nineum by looking at what admin nineum I have
-
-    fountUser = await fount.getUserByPublicKey(req.params.pubKey);
-    const grantee = await fount.granteNineum(fountUser.uuid, toUUID, nineum);
+    const grantee = await fount.grantAdminNineum(allyabaseUser.fountUser.uuid, toUUID);
     res.send(grantee);
-  };
+  });
 
   app.post('/plugin/ftt/transfer', async function(req, res) {
     const uuid = req.body.uuid;
