@@ -1,4 +1,13 @@
 let fountUser;
+let allyabaseUser;
+
+async function post(url, payload) {
+  return await fetch(url, {
+    method: 'post',
+    body: JSON.stringify(payload),
+    headers: {'Content-Type': 'application/json'}
+  });
+};
 
 function getPage($item) {
   return $item.parents('.page').data('data');
@@ -56,15 +65,61 @@ function getSignedFount(allyabaseUser, $item, item) {
   }
 };
 
+function getTransferees($item, item, allyabaseUser) {
+console.log('what is allyabaseUser here with transferees', allyabaseUser);
+  if(!allyabaseUser) {
+    $item.append(`<div><p>No Allyabase User with transferees</p></div>`);
+    return;
+  }
+console.log('about to do transferPromises');
+  let transfereesPromises = [];
+  const transferees = allyabaseUser.bdoUser && allyabaseUser.bdoUser.bdo && allyabaseUser.bdoUser.bdo.transferees;
+  Object.keys(transferees).forEach(uuid => {
+console.log('transferees', transferees);
+console.log('uuid', uuid);
+console.log('transferees[uuid]', transferees[uuid]);
+    const path = decodeURIComponent(transferees[uuid]);
+console.log('getting user from ', path);
+    const prom = fetch(path)
+      .then(resp => resp.json())
+      .then(transferee => {
+console.log('transferee looks like: ', transferee);
+        let sodoto = '';
+        if(!transferee.fountUser) {
+          transferee.fountUser = {};
+        }
+        switch(transferee.fountUser.nineumCount) {
+          case 0: sodoto = 'signed up';
+            break;
+          case 1: sodoto = 'seen one';
+            break;
+          case 2: sodoto = 'seen one and done one';
+            break;
+          case 3: sodoto = 'seen one and done one and taught one (sodoto)';
+            break;
+          default: sodoto = 'seen one and done one and taught one (sodoto)';
+            break;
+        } 
+        $item.append(`<div><p>The transferee at ${transferees[uuid]} has ${sodoto}.</p></div>`);
+        $item.append(`<div><p>Grant the next level token to transferee at ${transferees[uuid]}?   <button id=${uuid}>Advance</button></p></div>`);
+      });
+    transfereesPromises.push(prom);
+  });
+  return Promise.all(transfereesPromises);
+};
+
 function emit($item, item) {
   $item.empty(item);
 
   const gettingUserDiv = document.createElement('div');
   gettingUserDiv.innerHTML = '<p>Getting your allyabase user, and signatures...</p>';
   $item.append(gettingUserDiv);
+  let user;
 
   getAllyabaseUser(item)
-    .then(allyabaseUser => {
+    .then(_allyabaseUser => {
+      allyabaseUser = _allyabaseUser;
+      user = allyabaseUser;
 console.log('allyabaseUser', allyabaseUser);
       item.allyabaseUser = allyabaseUser;
       gettingUserDiv.remove();
@@ -72,12 +127,52 @@ console.log('allyabaseUser', allyabaseUser);
       $item.append(gettingUserDiv);
       return getSignedFount(allyabaseUser, $item, item);
     })
-    .then(getBDOs($item, page))
-    .catch(err => console.warn('received an error emitting in ftt plugin', err));
+//    .then(getBDOs($item, page))
+    .then(() => {
+      return getTransferees($item, item, user);
+    })
+    .catch(err => console.warn('received an error emitting in ftt plugin', err))
+    .finally(() => {
+      setTimeout(() => {
+	const transferees = allyabaseUser.bdoUser && allyabaseUser.bdoUser.bdo && allyabaseUser.bdoUser.bdo.transferees;
+	Object.keys(transferees).forEach(uuid => {
+      console.log('adding the button to', uuid);
+	  $item.find(`#${uuid}`).click(() => {
+      console.log('the grant button has been clicked');
+	    post('/plugin/ftt/grant-nineum', {toUUID: uuid, flavor: '24071209a3b3'})
+	      .then(transferee => {
+		if(transferee) {
+		  $item.append('<div><p>Transfer Successful!</p></div>');
+		} else {
+		  $item.append('<div><p>Transfer Unsuccessful!</p></div>');
+		}
+	      });
+	  });
+	});
+      }, 5000)
+    });
 };
 
 function bind($item, item) {
-
+  if(!allyabaseUser) {
+    return;
+  }
+console.log('trying to add the button');
+  const transferees = allyabaseUser.bdoUser && allyabaseUser.bdoUser.bdo && allyabaseUser.bdoUser.bdo.transferees;
+  Object.keys(transferees).forEach(uuid => {
+console.log('adding the button to', uuid);
+    $item.find(`#${uuid}`).click(() => {
+console.log('the grant button has been clicked');
+      post('/plugin/ftt/grant-nineum', {toUUID: uuid, flavor: '24071209a3b3'})
+        .then(transferee => {
+          if(transferee) {
+            $item.append('<div><p>Transfer Successful!</p></div>');
+          } else {
+            $item.append('<div><p>Transfer Unsuccessful!</p></div>');
+          }
+        });
+    });
+  });
 };
 
 if(window) {

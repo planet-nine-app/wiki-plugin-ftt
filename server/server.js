@@ -18,7 +18,7 @@ async function startServer(params) {
   const app = params.app;
   const argv = params.argv;
 
-  let allyabaseUser;
+  let allyabaseUser = {};
   
   const allyabaseKeys = {
     privateKey: argv.private_key,
@@ -52,7 +52,6 @@ console.log('err', err);
 console.log('getting called here');
     let fountUser;
     let bdoUUID;
-    let allyabaseUser = {};
 
     if(!allyabaseUser || !fountUser) {
 console.log('fount looks like', fount);
@@ -64,16 +63,21 @@ console.log('fount looks like', fount);
 
     if(!allyabaseUser || !allyabaseUser.bdoUser) {
       bdoUUID = await bdo.createUser(HASH, {}, saveKeys, getKeys);
+      allyabaseUser.bdoUser = {bdo: {}, uuid: bdoUUID};
     }
     
-    allyabaseUser.bdoUser = {uuid: bdoUUID, bdo: {}};
+    allyabaseUser.bdoUser = await bdo.getBDO(allyabaseUser.bdoUser.uuid, HASH);
     allyabaseUser.fountUser = fountUser;
     allyabaseUser.nineum = await fount.getNineum(allyabaseUser.fountUser.uuid);
 console.log('allyabaseUser is: ', allyabaseUser);
 
     let galacticNineum = allyabaseUser.nineum.filter(nineum => nineum.slice(14, 16) === 'ff');
-    if(!galacticNineum) {
-      allyabaseUser.fountUser = await fount.grantGalacticNineum(allyabaseUser.fountUser.uuid, '28880014');
+    if(!galacticNineum || galacticNineum.length < 1) {
+      try {
+        allyabaseUser.fountUser = await fount.grantGalacticNineum(allyabaseUser.fountUser.uuid, '28880014');
+      } catch(err) {
+console.log('grave error getting galaxy bud', err);
+      }
     } 
 
     res.send(allyabaseUser);
@@ -127,11 +131,14 @@ console.log('getting the user on the server, it looks like: ', fountUser);
     }
   });
 
-  app.post('/pugin/ftt/grant-nineum', async function(req, res) {
+  app.post('/plugin/ftt/grant-nineum', async function(req, res) {
     const toUUID = req.body.toUUID;
     const flavor = req.body.flavor;
+console.log('granting nineum to', toUUID);
+console.log('with flavor ', flavor);
 
     const grantee = await fount.grantNineum(allyabaseUser.fountUser.uuid, toUUID, flavor);
+console.log('the grantee now looks like: ', grantee);
     res.send(grantee);
   });
 
@@ -162,6 +169,29 @@ console.log('getting the user on the server, it looks like: ', fountUser);
     pubKey = argv.pub_key;
     verified = sessionless.verifySignature(signature, message, pubKey);
     return res.send('' + verified);
+  });
+
+  app.get('/plugin/ftt/abelard', async function(req, res) {
+    try {
+console.log('req.query is', req.query);
+      const transfereeUUID = req.query.uuid;
+      const transfereeHost = req.query.host;
+
+console.log('allyabaseUser here is', allyabaseUser);
+      const userBDO = await bdo.getBDO(allyabaseUser.bdoUser.uuid, HASH);
+console.log('this bdo is', userBDO);
+      userBDO.bdo.transferees = userBDO.bdo.transferees || {};
+      userBDO.bdo.transferees[transfereeUUID] = transfereeHost;
+
+      const updatedBDO = await bdo.updateBDO(allyabaseUser.bdoUser.uuid, HASH, userBDO.bdo);
+console.log('updatedBDO is', updatedBDO);
+
+      res.send({success: true});
+    } catch(err) {
+console.log(err);
+      res.status(404);
+      res.send({err});
+    }
   });
 }
 
