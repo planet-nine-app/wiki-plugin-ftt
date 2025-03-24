@@ -6,11 +6,6 @@ A forward transfer token on the other hand is meant for propogating something of
 
 What all of that means for a community is outside of the scope of this plugin. This plugin specifies a mechanism for the creation and permissioning of forward transferring tokens. 
 
-# Build
-
-    npm install
-    grunt build
-
 ## License
 
 MIT
