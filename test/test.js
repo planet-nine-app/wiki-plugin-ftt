@@ -59,11 +59,19 @@ it('should register the transfee with bdo and fount', async () => {
 
 it('should have the transferee register a bdo for the transferer', async () => {
   const updatedBDO = {
-    bdoUUID: savedUser2.bdoUUID
+    bdoUUID: savedUser2.bdoUUID,
+    pub: true,
+    pubKey: keys2.pubKey
   };
 
   const user = await bdo.updateBDO(savedUser2.bdoUUID, hash, updatedBDO);
   user.uuid.length.should.equal(36);
+});
+
+it('should have the transferer get a bdo for the trnsferee', async () => {
+  keysToReturn = keys;
+  const bdo = await bdo.getBDO(savedUser.bdoUUID, HASH, keys2.pubKey);
+  bdo.bdo.bdoUUID.should.equal(savedUser2.bdoUUID);
 });
 
 it('should have the transferer grant an inital nineum to the transferee', async () => {
